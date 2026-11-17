@@ -899,5 +899,13 @@
   renderHome();
 })();
 </script>
+<script>
+/* 离线缓存：首次打开后整页存入本地，之后秒开、断网可用；有更新时后台静默替换 */
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
+</script>
 </body>
 </html>
