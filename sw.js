@@ -1,5 +1,5 @@
 /* 解析版离线缓存：cache-first + 后台更新（stale-while-revalidate） */
-var CACHE = 'safety-quiz-gh-v1';
+var CACHE = 'safety-quiz-gh-v2';
 var SCOPE = '/dsh-001/';
 
 self.addEventListener('install', function (e) {
