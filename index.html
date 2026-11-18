@@ -228,6 +228,9 @@
       <div class="row" style="margin-top:10px">
         <button id="clearBtn" class="ghost">清除本机记录</button>
       </div>
+      <div class="row" style="margin-top:10px">
+        <button id="migBtn" class="ghost" style="display:none">迁移学习记录到秒开版</button>
+      </div>
       <div class="mini">答案与解析均按原文档参考答案整理，测试请以文档答案为准；记录仅保存在本机浏览器，离线可用。</div>
     </div>
   </section>
@@ -894,6 +897,55 @@
   }
   $('favbookBtn').onclick = renderFavbook;
   $('fbBack').onclick = renderHome;
+
+  // ---- 跨站迁移：html.cafe 老站 → GitHub Pages 新站（localStorage 按域名隔离，只能靠链接带过去） ----
+  try {
+    (function migrate() {
+      var TARGET = 'https://muisce.github.io/dsh-001/';
+      var host = (location.hostname || '');
+      var isTarget = /muisce\.github\.io$/i.test(host);
+      function b64e(str) {
+        return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      }
+      function b64d(str) {
+        str = str.replace(/-/g, '+').replace(/_/g, '/');
+        while (str.length % 4) str += '=';
+        return decodeURIComponent(escape(atob(str)));
+      }
+      function merge(raw) {
+        var inc = JSON.parse(raw);
+        var st = inc && inc.s;
+        if (!st) return null;
+        if (!Array.isArray(st.wrongIds)) st.wrongIds = [];
+        if (!Array.isArray(st.favIds)) st.favIds = [];
+        st.wrongIds.forEach(function (id) { id = +id; if (BYID[id] && save.wrongIds.indexOf(id) < 0) save.wrongIds.push(id); });
+        st.favIds.forEach(function (id) { id = +id; if (BYID[id] && save.favIds.indexOf(id) < 0) save.favIds.push(id); });
+        save.done = Math.max(save.done || 0, +st.done || 0);
+        persist();
+        return { done: save.done, wrong: save.wrongIds.length, fav: save.favIds.length };
+      }
+      var m = /(?:^#|&)mig=([A-Za-z0-9\-_]+)/.exec(location.hash || '');
+      if (isTarget && m) {
+        var r = null;
+        try { r = merge(b64d(m[1])); } catch (e) {}
+        try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+        renderHome();
+        if (r) setTimeout(function () {
+          alert('已从旧版导入学习记录：\n\n累计练习 ' + r.done + ' 题\n错题本 ' + r.wrong + ' 条\n收藏本 ' + r.fav + ' 条\n\n旧站的数据仍保留，不影响使用。');
+        }, 150);
+        return;
+      }
+      if (!isTarget && /html\.cafe$/i.test(host)) {
+        var btn = document.getElementById('migBtn');
+        if (!btn) return;
+        btn.style.display = '';
+        btn.onclick = function () {
+          var payload = b64e(JSON.stringify({ v: 1, s: save }));
+          location.href = TARGET + '#mig=' + payload;
+        };
+      }
+    })();
+  } catch (e) {}
 
   if (!BANK.length) showError('题库数据未加载，请确认文件完整。');
   renderHome();
