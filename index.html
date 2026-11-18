@@ -16,6 +16,11 @@
   --blue:#0b6efd; --green:#12a150; --red:#e5484d; --amber:#f5a623; --shadow:0 2px 12px rgba(20,40,80,.07);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+/* 老版 X5/WebView 不支持 flex gap 与 inset 的降级间距 */
+@supports not (gap:8px){
+  .stats>*,.chips>*,.row>*,.opts>*,.grid>*,.legend>*,.selfrow>*,.navbar .in>*{margin:4px;}
+}
+@supports not (inset:0){.mask{top:0;left:0;right:0;bottom:0;}}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
   font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
   -webkit-text-size-adjust:100%;}
