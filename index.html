@@ -521,13 +521,14 @@ function gradeShort(q,ok){
   r.v=true; r.ok=ok; P[q.id]=r; saveP(); renderQ();
 }
 function maybeAutoNext(ok){
-  if(!OPT.auto || !ok) return;
+  if(!OPT.auto) return;
   if(!S || S.review) return;
   if(S.idx>=S.ids.length-1) return;
   var curS=S, at=S.idx;
+  var wait=ok?650:1800;
   setTimeout(function(){
     if(S===curS && !S.review && S.idx===at && S.idx<S.ids.length-1){ S.idx++; saveS(); renderQ(); window.scrollTo(0,0); }
-  }, 550);
+  }, wait);
 }
 function shareAns(q,rec){
   var a=$('q-ans');
