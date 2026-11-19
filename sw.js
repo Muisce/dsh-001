@@ -1,20 +1,14 @@
 /* 化学实验室安全题库 · Service Worker
-   策略：HTML 网络优先（微信/QQ 强缓存下保证更新），静态资源缓存优先；
-   install 时预缓存全部核心资源；版本号化缓存，activate 清理旧缓存。 */
-var CACHE = 'dsh001-bank-v1';
-var CORE = [
-  './',
-  './index.html',
-  './bank.js',
-  './manifest.json',
-  './icon.svg'
-];
+   全 ES5 + Promise 链（兼容较老的 WebView；不用 async/await、箭头函数）。
+   策略：HTML 网络优先（微信/QQ 强缓存下保证更新），静态资源缓存优先。 */
+var CACHE = 'dsh001-bank-v3';
+var CORE = ['./', './index.html', './bank.js', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
-    caches.open(CACHE).then(function (c) {
-      return c.addAll(CORE).catch(function () {});
-    }).then(function () { return self.skipWaiting(); })
+    caches.open(CACHE)
+      .then(function (c) { return c.addAll(CORE).then(null, function () {}); })
+      .then(function () { return self.skipWaiting(); })
   );
 });
 
@@ -22,48 +16,64 @@ self.addEventListener('activate', function (e) {
   e.waitUntil(
     caches.keys().then(function (keys) {
       return Promise.all(keys.map(function (k) {
-        if (k.indexOf('dsh001-') === 0 && k !== CACHE) return caches.delete(k);
+        if (k.indexOf('dsh001-') === 0 && k !== CACHE) return caches["delete"](k);
+        return null;
       }));
     }).then(function () { return self.clients.claim(); })
   );
 });
 
+function cachePut(req, res) {
+  if (!res || !res.ok) return null;
+  return caches.open(CACHE).then(function (c) { return c.put(req, res.clone()); }).then(null, function () {});
+}
+
 self.addEventListener('fetch', function (e) {
   var req = e.request;
   if (req.method !== 'GET') return;
-  var url = new URL(req.url);
+  var url;
+  try { url = new URL(req.url); } catch (err) { return; }
   if (url.origin !== self.location.origin) return;
 
-  var isDoc = req.mode === 'navigate' || /index\.html$/.test(url.pathname) || /\/$/.test(url.pathname);
+  var isDoc = req.mode === 'navigate' ||
+    url.pathname.indexOf('index.html') >= 0 ||
+    /\/$/.test(url.pathname);
 
   if (isDoc) {
-    /* 网络优先，超时回退缓存；避免微信 X5 强缓存导致旧页面 */
-    e.respondWith((async function () {
-      try {
-        var fresh = await fetch(req);
-        if (fresh && fresh.ok) {
-          var c = await caches.open(CACHE);
-          c.put('./index.html', fresh.clone());
-          return fresh;
-        }
-      } catch (err) {}
-      var c2 = await caches.open(CACHE);
-      return (await c2.match('./index.html')) || (await c2.match('./')) ||
-        new Response('当前无网络且无离线缓存，请联网打开一次。', {
-          status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' }
+    e.respondWith(
+      fetch(req).then(function (fresh) {
+        if (fresh && fresh.ok) { e.waitUntil(cachePut(new Request('./index.html'), fresh)); return fresh; }
+        return caches.open(CACHE).then(function (c) {
+          return c.match('./index.html').then(function (hit) {
+            return hit || new Response('\u5f53\u524d\u65e0\u7f51\u7edc\u4e14\u65e0\u79bb\u7ebf\u7f13\u5b58\uff0c\u8bf7\u8054\u7f51\u6253\u5f00\u4e00\u6b21\u3002', {
+              status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' }
+            });
+          });
         });
-    })());
-  } else {
-    /* 资源缓存优先，后台更新 */
-    e.respondWith((async function () {
-      var c = await caches.open(CACHE);
-      var cached = await c.match(req);
-      var update = fetch(req).then(function (r) {
-        if (r && r.ok) c.put(req, r.clone());
-      }).catch(function () {});
-      if (cached) { e.waitUntil(update); return cached; }
-      await update;
-      return (await c.match(req)) || fetch(req);
-    })());
+      }).then(null, function () {
+        return caches.open(CACHE).then(function (c) {
+          return c.match('./index.html').then(function (hit) {
+            return hit || new Response('\u5f53\u524d\u65e0\u7f51\u7edc\u4e14\u65e0\u79bb\u7ebf\u7f13\u5b58\uff0c\u8bf7\u8054\u7f51\u6253\u5f00\u4e00\u6b21\u3002', {
+              status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' }
+            });
+          });
+        });
+      })
+    );
+    return;
   }
+
+  e.respondWith(
+    caches.open(CACHE).then(function (c) {
+      return c.match(req).then(function (hit) {
+        var update = fetch(req).then(function (res) { return cachePut(req, res); }).then(null, function () {});
+        if (hit) { e.waitUntil(update); return hit; }
+        return update.then(function () {
+          return c.match(req).then(function (h2) {
+            return h2 || fetch(req);
+          });
+        });
+      });
+    })
+  );
 });
