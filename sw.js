@@ -1,7 +1,7 @@
 /* 化学实验室安全题库 · Service Worker
    全 ES5 + Promise 链（兼容较老的 WebView；不用 async/await、箭头函数）。
    策略：HTML 网络优先（微信/QQ 强缓存下保证更新），静态资源缓存优先。 */
-var CACHE = 'dsh001-bank-v3';
+var CACHE = 'dsh001-bank-v4';
 var CORE = ['./', './index.html', './bank.js', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', function (e) {
